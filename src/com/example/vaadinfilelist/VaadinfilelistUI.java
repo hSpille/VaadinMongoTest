@@ -6,19 +6,19 @@ import java.util.List;
 
 import com.example.vaadinfilelist.singleton.Broadcaster;
 import com.example.vaadinfilelist.singleton.MongoConnector;
+import com.mongodb.DBObject;
 import com.mongodb.gridfs.GridFSDBFile;
 import com.vaadin.annotations.Push;
 import com.vaadin.annotations.Theme;
 import com.vaadin.data.Container.Filter;
 import com.vaadin.data.Item;
+import com.vaadin.data.fieldgroup.FieldGroup;
 import com.vaadin.data.util.IndexedContainer;
 import com.vaadin.event.FieldEvents.TextChangeEvent;
 import com.vaadin.event.FieldEvents.TextChangeListener;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.ui.AbstractTextField.TextChangeEventMode;
-import com.vaadin.ui.Button;
-import com.vaadin.ui.Button.ClickEvent;
-import com.vaadin.ui.Button.ClickListener;
+import com.vaadin.ui.FormLayout;
 import com.vaadin.ui.HorizontalLayout;
 import com.vaadin.ui.HorizontalSplitPanel;
 import com.vaadin.ui.Table;
@@ -38,7 +38,7 @@ public class VaadinfilelistUI extends UI implements SucceededListener,Serializab
   private Table elementList = new Table();
   private TextField searchField = new TextField();
   private TextField metaInfo = new TextField();
-  private Button addNewFile = new Button("neue Datei");
+  
   private static final String FILENAME = "Datei Name";
   private static final String FILE_DESC = "Kurzbeschreibung";
   private static final String[] fieldNames = new String[] { FILENAME, FILE_DESC };
@@ -47,6 +47,9 @@ public class VaadinfilelistUI extends UI implements SucceededListener,Serializab
   private MongoConnector connector;
   private Uploader uploader;
   private Upload upload;
+  private FormLayout uploadLayout = new FormLayout();
+  private FieldGroup uploadFields = new FieldGroup();
+  private TextField beschreibungZurDatei;
 
   @Override
   protected void init(VaadinRequest request) {
@@ -54,9 +57,9 @@ public class VaadinfilelistUI extends UI implements SucceededListener,Serializab
     fileFakeContainer = createDummyDatasource();
     uploader = new Uploader();
     initLayout();
-    initContactList();
+    initFileList();
+    initUploadEditor();
     initSearch();
-    initAddRemoveButtons();
     Broadcaster.register(this);
     setPollInterval(2000);
   }
@@ -66,11 +69,11 @@ public class VaadinfilelistUI extends UI implements SucceededListener,Serializab
     setContent(splitPanel);
     VerticalLayout leftLayout = new VerticalLayout();
     splitPanel.addComponent(leftLayout);
+    splitPanel.addComponent(uploadLayout);
     leftLayout.addComponent(elementList);
     HorizontalLayout bottomLeftLayout = new HorizontalLayout();
     leftLayout.addComponent(bottomLeftLayout);
     bottomLeftLayout.addComponent(searchField);
-    bottomLeftLayout.addComponent(addNewFile);
 
     leftLayout.setSizeFull();
 
@@ -80,16 +83,19 @@ public class VaadinfilelistUI extends UI implements SucceededListener,Serializab
     bottomLeftLayout.setWidth("100%");
     searchField.setWidth("100%");
     bottomLeftLayout.setExpandRatio(searchField, 1);
+    
+    uploadLayout.setMargin(true);
+    uploadLayout.setVisible(true);
     upload = new Upload("Upload it here", uploader);
     upload.setButtonCaption("Upload Now");
     upload.addSucceededListener(this);
-    bottomLeftLayout.addComponent(upload);
+    uploadLayout.addComponent(upload);
 
   }
   
 
   private void initSearch() {
-    searchField.setInputPrompt("Search contacts");
+    searchField.setInputPrompt("Search filenames");
     searchField.setTextChangeEventMode(TextChangeEventMode.LAZY);
     searchField.addTextChangeListener(new TextChangeListener() {
       @Override
@@ -101,8 +107,19 @@ public class VaadinfilelistUI extends UI implements SucceededListener,Serializab
     });
   }
 
+  
+  private void initUploadEditor() {
 
-  private void initContactList() {
+    String desc = "Kurzbeschreibung";
+    beschreibungZurDatei = new TextField(desc);
+    uploadLayout.addComponent(beschreibungZurDatei);
+    uploadFields.bind(beschreibungZurDatei, desc);
+    beschreibungZurDatei.setWidth("100%");
+//    editorLayout.addComponent(removeContactButton);
+//    editorFields.setBuffered(false);
+}
+
+  private void initFileList() {
     elementList.setContainerDataSource(fileFakeContainer);
     elementList.setVisibleColumns(new String[] { FILENAME, FILE_DESC });
     elementList.setSelectable(true);
@@ -130,25 +147,6 @@ public class VaadinfilelistUI extends UI implements SucceededListener,Serializab
     }
   }
 
-  private void initAddRemoveButtons() {
-    addNewFile.addClickListener(new ClickListener() {
-      @Override
-      public void buttonClick(ClickEvent event) {
-        connector.firstTestInsert();
-        System.out.println("Add new...");
-        fileFakeContainer.removeAllContainerFilters();
-        Object contactId = fileFakeContainer.addItemAt(0);
-
-        elementList.getContainerProperty(contactId, FILENAME).setValue(
-            "New");
-        elementList.getContainerProperty(contactId, FILE_DESC).setValue(
-            "file");
-
-        elementList.select(contactId);
-      }
-    });
-
-  }
 
   private IndexedContainer createDummyDatasource() {
     List<GridFSDBFile> findFiles = connector.findFiles();
@@ -161,7 +159,8 @@ public class VaadinfilelistUI extends UI implements SucceededListener,Serializab
     for (GridFSDBFile gridFSDBFile : findFiles) {
       Object id = ic.addItem();
       ic.getContainerProperty(id, FILENAME).setValue(gridFSDBFile.getFilename());
-      ic.getContainerProperty(id, FILE_DESC).setValue(gridFSDBFile.get("metadata.target_field"));
+      DBObject metaData = gridFSDBFile.getMetaData();
+      ic.getContainerProperty(id, FILE_DESC).setValue(metaData.get("metafileText"));
     }
     
 
@@ -172,14 +171,15 @@ public class VaadinfilelistUI extends UI implements SucceededListener,Serializab
   public void uploadSucceeded(SucceededEvent event) {
     System.out.println("Upload succeeded...");
     File uploadedFile = uploader.getUploadedFile();
-    connector.storeFile(uploadedFile);
+    
+    connector.storeFile(uploadedFile,beschreibungZurDatei.getValue());
     Broadcaster.broadcast("new File");
   }
 
   @Override
   public void receiveBroadcast(String message) {
    fileFakeContainer = createDummyDatasource();
-   initContactList();
+   initFileList();
    markAsDirty();
   }
   

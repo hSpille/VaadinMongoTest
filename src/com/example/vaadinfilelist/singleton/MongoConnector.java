@@ -71,12 +71,13 @@ public class MongoConnector {
     return true;
   }
 
-  public boolean storeFile(File f) {
+  public boolean storeFile(File f, String metaInfo) {
     System.out.println("store File " + f);
     try {
       GridFSInputFile createFile = myFS.createFile(f);
       createFile.setFilename(f.getName());
       BasicDBObject basicDBObject = new BasicDBObject("target_field", "mandant");
+      basicDBObject.append("metafileText", metaInfo);
       createFile.setMetaData(basicDBObject);
       createFile.save();
 
