@@ -10,6 +10,7 @@ public class Uploader implements Receiver {
 
   private static final long serialVersionUID = -5933427896718210268L;
   private File file;
+  
 
   @Override
   public OutputStream receiveUpload(String filename,
@@ -18,7 +19,7 @@ public class Uploader implements Receiver {
     FileOutputStream fos = null; // Stream to write to
     try {
       // Open the file for writing.
-      file = new File("/tmp/uploads/" + filename);
+      file = new File("/tmp/" + filename);
       fos = new FileOutputStream(file);
     } catch (final java.io.FileNotFoundException e) {
     }
@@ -27,6 +28,12 @@ public class Uploader implements Receiver {
 
   public File getUploadedFile() {
     return file;
+  }
+
+  public void delete(File uploadedFile) {
+    if(uploadedFile.exists()){
+      uploadedFile.delete();
+    }
   }
 
 

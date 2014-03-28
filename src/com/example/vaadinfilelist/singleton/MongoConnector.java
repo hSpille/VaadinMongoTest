@@ -32,7 +32,7 @@ public class MongoConnector {
 
   private MongoConnector() {
     if (db == null) {
-     db =  connectToMongo();
+      db = connectToMongo();
     }
   }
 
@@ -95,6 +95,19 @@ public class MongoConnector {
     db.requestDone();
     System.out.println("Habe " + fileList.size() + " gefunden..");
     return fileList;
+  }
+
+  public GridFSDBFile loadFile(String fileName) {
+    BasicDBObject query = new BasicDBObject("metadata.target_field", "mandant");
+    query.append("filename", fileName);
+    db.requestStart();
+    List<GridFSDBFile> fileList = myFS.find(query);
+    GridFSDBFile gridFSDBFile = fileList.get(0);
+    return gridFSDBFile;
+  }
+
+  public void deleteFile(String fileName) {
+    myFS.remove(fileName);
   }
 
 }
